@@ -1,0 +1,16 @@
+{
+  "name": "recuerdame",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PWA de recordatorios persistentes de tareas para combatir la procrastinación",
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node server/src/index.js",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "node server/src/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
