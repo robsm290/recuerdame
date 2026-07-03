@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { fetchSettings, saveSettings, sendTestPush, fetchPushStatus } from '../api'
 import { enablePush, disablePush, isPushEnabled, pushSupported } from '../push'
+import { SOUND_OPTIONS, playAlertSound, rememberSound } from '../audio'
 import type { Settings } from '../types'
 
 export default function SettingsView() {
@@ -28,6 +29,7 @@ export default function SettingsView() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       })
       setSettings(saved)
+      rememberSound(saved.alarm_sound)
       setMessage('Ajustes guardados.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
@@ -115,6 +117,32 @@ export default function SettingsView() {
               />
             </label>
           </div>
+          <div className="sound-row">
+            <label>
+              Sonido de la alerta (dentro de la app)
+              <select
+                value={settings.alarm_sound}
+                onChange={(e) => setSettings({ ...settings, alarm_sound: e.target.value })}
+              >
+                {SOUND_OPTIONS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => playAlertSound(settings.alarm_sound)}
+            >
+              ▶ Probar
+            </button>
+          </div>
+          <p className="muted">
+            Este sonido suena con la alerta que aparece dentro de la app. El de la notificación
+            del sistema lo define tu dispositivo.
+          </p>
           <p className="muted">Zona horaria detectada: {settings.timezone}</p>
           <button className="btn-primary" type="submit">
             Guardar ajustes

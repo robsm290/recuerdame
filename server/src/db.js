@@ -68,6 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_subs_user  ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, sent_at);
 
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT NOT NULL DEFAULT 'classic';
 `;
 
 const SQLITE_SCHEMA = `
@@ -160,10 +161,15 @@ if (databaseUrl) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SQLITE_SCHEMA);
-  try {
-    db.exec('ALTER TABLE tasks ADD COLUMN description TEXT');
-  } catch {
-    // la columna ya existe
+  for (const migration of [
+    'ALTER TABLE tasks ADD COLUMN description TEXT',
+    "ALTER TABLE settings ADD COLUMN alarm_sound TEXT NOT NULL DEFAULT 'classic'",
+  ]) {
+    try {
+      db.exec(migration);
+    } catch {
+      // la columna ya existe
+    }
   }
 
   all = async (sql, params = []) => db.prepare(sql).all(...params);

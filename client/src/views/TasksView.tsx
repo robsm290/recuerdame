@@ -241,6 +241,19 @@ function TaskRow({
         <span className="task-meta">Creada el {formatDateTime(task.created_at)}</span>
       </div>
       {task.due_date && <span className="due-chip">📅 {task.due_date}</span>}
+      <select
+        className={`priority-select p-${task.priority}`}
+        value={task.priority}
+        onChange={(e) => onPatch(task.id, { priority: e.target.value as Priority })}
+        aria-label={`Cambiar prioridad de «${task.title}»`}
+        title="Cambiar prioridad"
+      >
+        {PRIORITIES.map((p) => (
+          <option key={p} value={p}>
+            {PRIORITY_LABEL[p]}
+          </option>
+        ))}
+      </select>
       <button className="icon-btn" onClick={onToggleEdit} aria-label="Editar">
         ✎
       </button>

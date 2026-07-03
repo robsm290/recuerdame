@@ -26,6 +26,7 @@ export interface Settings {
   end_time: string
   interval_minutes: number
   timezone: string
+  alarm_sound: string
 }
 
 export interface ReminderPayload {

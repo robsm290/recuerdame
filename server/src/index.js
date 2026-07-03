@@ -13,6 +13,7 @@ app.use(express.json());
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PRIORITIES = new Set(['high', 'medium', 'low']);
+const ALARM_SOUNDS = new Set(['classic', 'bell', 'digital', 'urgent', 'soft']);
 const TASK_FIELDS = 'id, title, description, priority, due_date, completed, created_at, completed_at';
 
 // ---------- auth ----------
@@ -34,7 +35,7 @@ app.post('/api/auth/login', async (req, res, next) => {
 app.get('/api/settings', requireAuth, async (req, res, next) => {
   try {
     const settings = await db.get(
-      'SELECT start_time, end_time, interval_minutes, timezone FROM settings WHERE user_id = ?',
+      'SELECT start_time, end_time, interval_minutes, timezone, alarm_sound FROM settings WHERE user_id = ?',
       [req.userId]
     );
     res.json(settings);
@@ -43,7 +44,7 @@ app.get('/api/settings', requireAuth, async (req, res, next) => {
 
 app.put('/api/settings', requireAuth, async (req, res, next) => {
   try {
-    const { start_time, end_time, interval_minutes, timezone } = req.body || {};
+    const { start_time, end_time, interval_minutes, timezone, alarm_sound } = req.body || {};
     if (!TIME_RE.test(start_time) || !TIME_RE.test(end_time)) {
       throw httpError(400, 'Horario inválido (formato HH:MM)');
     }
@@ -52,11 +53,12 @@ app.put('/api/settings', requireAuth, async (req, res, next) => {
       throw httpError(400, 'El intervalo debe estar entre 5 y 720 minutos');
     }
     const tz = isValidTimezone(timezone) ? timezone : 'UTC';
+    const sound = ALARM_SOUNDS.has(alarm_sound) ? alarm_sound : 'classic';
     await db.run(
-      'UPDATE settings SET start_time = ?, end_time = ?, interval_minutes = ?, timezone = ? WHERE user_id = ?',
-      [start_time, end_time, interval, tz, req.userId]
+      'UPDATE settings SET start_time = ?, end_time = ?, interval_minutes = ?, timezone = ?, alarm_sound = ? WHERE user_id = ?',
+      [start_time, end_time, interval, tz, sound, req.userId]
     );
-    res.json({ start_time, end_time, interval_minutes: interval, timezone: tz });
+    res.json({ start_time, end_time, interval_minutes: interval, timezone: tz, alarm_sound: sound });
   } catch (err) { next(err); }
 });
 

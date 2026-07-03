@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getSession, clearSession } from './api'
+import { getSession, clearSession, fetchSettings } from './api'
 import type { ReminderPayload } from './types'
-import { playAlertSound } from './audio'
+import { playAlertSound, rememberSound } from './audio'
 import AuthView from './views/AuthView'
 import TasksView from './views/TasksView'
 import SettingsView from './views/SettingsView'
@@ -28,6 +28,14 @@ export default function App() {
     navigator.serviceWorker.addEventListener('message', onMessage)
     return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [])
+
+  // sincroniza el sonido de alerta elegido para este dispositivo
+  useEffect(() => {
+    if (!session) return
+    fetchSettings()
+      .then((s) => rememberSound(s.alarm_sound))
+      .catch(() => {})
+  }, [session])
 
   if (!session) {
     return <AuthView onLogin={() => setSessionState(getSession())} />

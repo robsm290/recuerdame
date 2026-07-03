@@ -461,6 +461,51 @@ label {
   white-space: nowrap;
 }
 
+.priority-select {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.priority-select.p-high {
+  color: var(--high);
+  border-color: var(--high);
+}
+
+.priority-select.p-medium {
+  color: var(--medium);
+  border-color: var(--medium);
+}
+
+.priority-select.p-low {
+  color: var(--low);
+  border-color: var(--low);
+}
+
+.priority-select option {
+  color: var(--text);
+}
+
+.sound-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.sound-row label {
+  flex: 1;
+}
+
+.sound-row .btn-secondary {
+  flex-shrink: 0;
+  padding: 9px 14px;
+}
+
 .icon-btn {
   background: transparent;
   border: none;
