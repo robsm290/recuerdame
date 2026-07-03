@@ -52,8 +52,22 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  priority   TEXT NOT NULL,
+  task_count INTEGER NOT NULL,
+  delivered  INTEGER NOT NULL DEFAULT 0,
+  sent_at    TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id, completed, priority);
 CREATE INDEX IF NOT EXISTS idx_subs_user  ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, sent_at);
+
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
 `;
 
 const SQLITE_SCHEMA = `
@@ -97,8 +111,20 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL,
+  body       TEXT NOT NULL,
+  priority   TEXT NOT NULL,
+  task_count INTEGER NOT NULL,
+  delivered  INTEGER NOT NULL DEFAULT 0,
+  sent_at    TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id, completed, priority);
 CREATE INDEX IF NOT EXISTS idx_subs_user  ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, sent_at);
 `;
 
 if (databaseUrl) {
@@ -134,6 +160,11 @@ if (databaseUrl) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SQLITE_SCHEMA);
+  try {
+    db.exec('ALTER TABLE tasks ADD COLUMN description TEXT');
+  } catch {
+    // la columna ya existe
+  }
 
   all = async (sql, params = []) => db.prepare(sql).all(...params);
   get = async (sql, params = []) => db.prepare(sql).get(...params);

@@ -69,8 +69,17 @@ export async function evaluateUser(user, { force = false } = {}) {
   if (!picked) return null;
 
   const payload = buildPayload(picked);
-  await sendToUser(user.user_id, payload);
+  const delivered = await sendToUser(user.user_id, payload);
   await run('UPDATE settings SET last_sent_at = ? WHERE user_id = ?', [nowMs, user.user_id]);
+  await run(
+    'INSERT INTO notifications (user_id, title, body, priority, task_count, delivered, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [user.user_id, payload.title, payload.body, payload.priority, payload.count, delivered, new Date().toISOString()]
+  );
+  // conserva solo las últimas 50 por usuario
+  await run(
+    'DELETE FROM notifications WHERE user_id = ? AND id NOT IN (SELECT id FROM notifications WHERE user_id = ? ORDER BY sent_at DESC LIMIT 50)',
+    [user.user_id, user.user_id]
+  );
   return payload;
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { fetchSettings, saveSettings, sendTestPush } from '../api'
+import { fetchSettings, saveSettings, sendTestPush, fetchPushStatus } from '../api'
 import { enablePush, disablePush, isPushEnabled, pushSupported } from '../push'
 import type { Settings } from '../types'
 
@@ -9,10 +9,12 @@ export default function SettingsView() {
   const [error, setError] = useState('')
   const [pushOn, setPushOn] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [devices, setDevices] = useState<number | null>(null)
 
   useEffect(() => {
     fetchSettings().then(setSettings).catch((err) => setError(err.message))
     isPushEnabled().then(setPushOn)
+    fetchPushStatus().then((s) => setDevices(s.devices)).catch(() => {})
   }, [])
 
   const save = async (e: FormEvent) => {
@@ -46,6 +48,7 @@ export default function SettingsView() {
         setPushOn(true)
         setMessage('¡Listo! Este dispositivo recibirá recordatorios.')
       }
+      fetchPushStatus().then((s) => setDevices(s.devices)).catch(() => {})
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error con las notificaciones')
     } finally {
@@ -138,6 +141,11 @@ export default function SettingsView() {
           )}
         </div>
         <p className="muted">
+          {devices !== null && (
+            <>
+              Dispositivos con notificaciones activas en tu cuenta: <strong>{devices}</strong>.{' '}
+            </>
+          )}
           Puedes activar las notificaciones en varios dispositivos con la misma cuenta; todos
           recibirán los recordatorios.
         </p>

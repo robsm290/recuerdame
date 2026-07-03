@@ -3,11 +3,22 @@ export type Priority = 'high' | 'medium' | 'low'
 export interface Task {
   id: number
   title: string
+  description: string | null
   priority: Priority
   due_date: string | null
   completed: number
   created_at: string
   completed_at: string | null
+}
+
+export interface NotificationEntry {
+  id: number
+  title: string
+  body: string
+  priority: Priority
+  task_count: number
+  delivered: number
+  sent_at: string
 }
 
 export interface Settings {

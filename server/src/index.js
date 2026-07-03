@@ -13,7 +13,7 @@ app.use(express.json());
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PRIORITIES = new Set(['high', 'medium', 'low']);
-const TASK_FIELDS = 'id, title, priority, due_date, completed, created_at, completed_at';
+const TASK_FIELDS = 'id, title, description, priority, due_date, completed, created_at, completed_at';
 
 // ---------- auth ----------
 app.post('/api/auth/register', async (req, res, next) => {
@@ -73,15 +73,17 @@ app.get('/api/tasks', requireAuth, async (req, res, next) => {
 
 app.post('/api/tasks', requireAuth, async (req, res, next) => {
   try {
-    const { title, priority, due_date } = req.body || {};
+    const { title, description, priority, due_date } = req.body || {};
     const cleanTitle = String(title || '').trim();
     if (!cleanTitle) throw httpError(400, 'La tarea necesita un nombre');
     if (cleanTitle.length > 300) throw httpError(400, 'Nombre demasiado largo');
     if (!PRIORITIES.has(priority)) throw httpError(400, 'Prioridad inválida');
+    const desc = String(description || '').trim();
+    if (desc.length > 2000) throw httpError(400, 'Descripción demasiado larga');
     const due = due_date && /^\d{4}-\d{2}-\d{2}$/.test(due_date) ? due_date : null;
     const task = await db.get(
-      `INSERT INTO tasks (user_id, title, priority, due_date) VALUES (?, ?, ?, ?) RETURNING ${TASK_FIELDS}`,
-      [req.userId, cleanTitle, priority, due]
+      `INSERT INTO tasks (user_id, title, description, priority, due_date) VALUES (?, ?, ?, ?, ?) RETURNING ${TASK_FIELDS}`,
+      [req.userId, cleanTitle, desc || null, priority, due]
     );
     res.status(201).json(task);
   } catch (err) { next(err); }
@@ -98,6 +100,12 @@ app.put('/api/tasks/:id', requireAuth, async (req, res, next) => {
 
     const title = body.title !== undefined ? String(body.title).trim() : existing.title;
     if (!title || title.length > 300) throw httpError(400, 'Nombre inválido');
+    let description = existing.description;
+    if (body.description !== undefined) {
+      const desc = String(body.description || '').trim();
+      if (desc.length > 2000) throw httpError(400, 'Descripción demasiado larga');
+      description = desc || null;
+    }
     const priority = body.priority !== undefined ? body.priority : existing.priority;
     if (!PRIORITIES.has(priority)) throw httpError(400, 'Prioridad inválida');
     let due = existing.due_date;
@@ -112,8 +120,8 @@ app.put('/api/tasks/:id', requireAuth, async (req, res, next) => {
     }
 
     const task = await db.get(
-      `UPDATE tasks SET title = ?, priority = ?, due_date = ?, completed = ?, completed_at = ? WHERE id = ? RETURNING ${TASK_FIELDS}`,
-      [title, priority, due, completed, completedAt, existing.id]
+      `UPDATE tasks SET title = ?, description = ?, priority = ?, due_date = ?, completed = ?, completed_at = ? WHERE id = ? RETURNING ${TASK_FIELDS}`,
+      [title, description, priority, due, completed, completedAt, existing.id]
     );
     res.json(task);
   } catch (err) { next(err); }
@@ -130,9 +138,29 @@ app.delete('/api/tasks/:id', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ---------- notifications history ----------
+app.get('/api/notifications', requireAuth, async (req, res, next) => {
+  try {
+    const items = await db.all(
+      'SELECT id, title, body, priority, task_count, delivered, sent_at FROM notifications WHERE user_id = ? ORDER BY sent_at DESC LIMIT 10',
+      [req.userId]
+    );
+    res.json(items);
+  } catch (err) { next(err); }
+});
+
 // ---------- push ----------
 app.get('/api/push/public-key', (_req, res) => {
   res.json({ publicKey: vapidPublicKey });
+});
+
+app.get('/api/push/status', requireAuth, async (req, res, next) => {
+  try {
+    const row = await db.get('SELECT COUNT(*) AS devices FROM subscriptions WHERE user_id = ?', [
+      req.userId,
+    ]);
+    res.json({ devices: Number(row.devices) });
+  } catch (err) { next(err); }
 });
 
 app.post('/api/push/subscribe', requireAuth, async (req, res, next) => {

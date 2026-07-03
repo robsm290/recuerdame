@@ -5,9 +5,10 @@ import { playAlertSound } from './audio'
 import AuthView from './views/AuthView'
 import TasksView from './views/TasksView'
 import SettingsView from './views/SettingsView'
+import HistoryView from './views/HistoryView'
 import InAppAlert from './components/InAppAlert'
 
-type View = 'tasks' | 'settings'
+type View = 'tasks' | 'history' | 'settings'
 
 export default function App() {
   const [session, setSessionState] = useState(getSession())
@@ -53,6 +54,12 @@ export default function App() {
             Tareas
           </button>
           <button
+            className={view === 'history' ? 'nav-btn active' : 'nav-btn'}
+            onClick={() => setView('history')}
+          >
+            Historial
+          </button>
+          <button
             className={view === 'settings' ? 'nav-btn active' : 'nav-btn'}
             onClick={() => setView('settings')}
           >
@@ -64,7 +71,9 @@ export default function App() {
         </nav>
       </header>
       <main>
-        {view === 'tasks' ? <TasksView refreshKey={refreshKey} /> : <SettingsView />}
+        {view === 'tasks' && <TasksView refreshKey={refreshKey} />}
+        {view === 'history' && <HistoryView />}
+        {view === 'settings' && <SettingsView />}
       </main>
     </div>
   )

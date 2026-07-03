@@ -1,4 +1,4 @@
-import type { Task, Settings, Priority } from './types'
+import type { Task, Settings, Priority, NotificationEntry } from './types'
 
 const TOKEN_KEY = 'recuerdame_token'
 const EMAIL_KEY = 'recuerdame_email'
@@ -59,16 +59,27 @@ export function loginUser(email: string, password: string) {
 // ---- tasks ----
 export const fetchTasks = () => request<Task[]>('/api/tasks')
 
-export function createTask(title: string, priority: Priority, due_date: string | null) {
+export function createTask(
+  title: string,
+  priority: Priority,
+  due_date: string | null,
+  description: string | null
+) {
   return request<Task>('/api/tasks', {
     method: 'POST',
-    body: JSON.stringify({ title, priority, due_date }),
+    body: JSON.stringify({ title, priority, due_date, description }),
   })
 }
 
-export function updateTask(id: number, patch: Partial<Pick<Task, 'title' | 'priority' | 'due_date'>> & { completed?: boolean }) {
+export function updateTask(
+  id: number,
+  patch: Partial<Pick<Task, 'title' | 'description' | 'priority' | 'due_date'>> & { completed?: boolean }
+) {
   return request<Task>(`/api/tasks/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
 }
+
+// ---- notifications ----
+export const fetchNotifications = () => request<NotificationEntry[]>('/api/notifications')
 
 export function deleteTask(id: number) {
   return request<void>(`/api/tasks/${id}`, { method: 'DELETE' })
@@ -83,6 +94,8 @@ export function saveSettings(settings: Settings) {
 
 // ---- push ----
 export const fetchVapidKey = () => request<{ publicKey: string }>('/api/push/public-key')
+
+export const fetchPushStatus = () => request<{ devices: number }>('/api/push/status')
 
 export function apiSubscribePush(subscription: PushSubscriptionJSON) {
   return request<{ ok: true }>('/api/push/subscribe', {

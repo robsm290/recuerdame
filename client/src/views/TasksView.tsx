@@ -5,6 +5,10 @@ import { formatDateTime } from '../format'
 
 const PRIORITIES: Priority[] = ['high', 'medium', 'low']
 
+type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'due_date'>> & {
+  completed?: boolean
+}
+
 export default function TasksView({ refreshKey }: { refreshKey: number }) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -12,9 +16,11 @@ export default function TasksView({ refreshKey }: { refreshKey: number }) {
 
   // formulario de alta rápida
   const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>('high')
   const [dueDate, setDueDate] = useState('')
   const [showDate, setShowDate] = useState(false)
+  const [showDesc, setShowDesc] = useState(false)
 
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -32,16 +38,22 @@ export default function TasksView({ refreshKey }: { refreshKey: number }) {
     if (!title.trim()) return
     setError('')
     try {
-      const task = await createTask(title.trim(), priority, showDate && dueDate ? dueDate : null)
+      const task = await createTask(
+        title.trim(),
+        priority,
+        showDate && dueDate ? dueDate : null,
+        showDesc && description.trim() ? description.trim() : null
+      )
       setTasks((prev) => [task, ...prev])
       setTitle('')
+      setDescription('')
       setDueDate('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear la tarea')
     }
   }
 
-  const patch = async (id: number, changes: Parameters<typeof updateTask>[1]) => {
+  const patch = async (id: number, changes: TaskPatch) => {
     setError('')
     try {
       const updated = await updateTask(id, changes)
@@ -74,6 +86,16 @@ export default function TasksView({ refreshKey }: { refreshKey: number }) {
           onChange={(e) => setTitle(e.target.value)}
           maxLength={300}
         />
+        {showDesc && (
+          <textarea
+            className="quick-add-desc"
+            placeholder="Descripción (opcional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={2000}
+            rows={2}
+          />
+        )}
         <div className="quick-add-row">
           <div className="priority-picker" role="radiogroup" aria-label="Prioridad">
             {PRIORITIES.map((p) => (
@@ -87,6 +109,11 @@ export default function TasksView({ refreshKey }: { refreshKey: number }) {
               </button>
             ))}
           </div>
+          {!showDesc && (
+            <button type="button" className="btn-link" onClick={() => setShowDesc(true)}>
+              + descripción
+            </button>
+          )}
           {showDate ? (
             <input
               type="date"
@@ -179,16 +206,22 @@ function TaskRow({
   task: Task
   editing: boolean
   onToggleEdit: () => void
-  onPatch: (id: number, changes: { title?: string; priority?: Priority; due_date?: string | null; completed?: boolean }) => Promise<void>
+  onPatch: (id: number, changes: TaskPatch) => Promise<void>
   onRemove: (id: number) => void
 }) {
   const [title, setTitle] = useState(task.title)
+  const [description, setDescription] = useState(task.description ?? '')
   const [priority, setPriority] = useState<Priority>(task.priority)
   const [dueDate, setDueDate] = useState(task.due_date ?? '')
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
-    await onPatch(task.id, { title: title.trim(), priority, due_date: dueDate || null })
+    await onPatch(task.id, {
+      title: title.trim(),
+      description: description.trim() || null,
+      priority,
+      due_date: dueDate || null,
+    })
     onToggleEdit()
   }
 
@@ -204,6 +237,7 @@ function TaskRow({
       />
       <div className="task-main">
         <span className="task-title">{task.title}</span>
+        {task.description && <span className="task-desc">{task.description}</span>}
         <span className="task-meta">Creada el {formatDateTime(task.created_at)}</span>
       </div>
       {task.due_date && <span className="due-chip">📅 {task.due_date}</span>}
@@ -216,6 +250,14 @@ function TaskRow({
       {editing && (
         <form className="task-edit" onSubmit={save}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} required />
+          <textarea
+            className="task-edit-desc"
+            placeholder="Descripción (opcional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={2000}
+            rows={2}
+          />
           <select value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
             {PRIORITIES.map((p) => (
               <option key={p} value={p}>
