@@ -345,11 +345,22 @@ label {
   cursor: pointer;
 }
 
-.task-title {
+.task-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-title {
   font-size: 1rem;
   overflow-wrap: anywhere;
+}
+
+.task-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
 .task-row.completed .task-title {

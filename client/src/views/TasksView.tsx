@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { fetchTasks, createTask, updateTask, deleteTask } from '../api'
 import { PRIORITY_LABEL, type Priority, type Task } from '../types'
+import { formatDateTime } from '../format'
 
 const PRIORITIES: Priority[] = ['high', 'medium', 'low']
 
@@ -149,7 +150,13 @@ export default function TasksView({ refreshKey }: { refreshKey: number }) {
                   aria-label={`Reabrir «${task.title}»`}
                   title="Marcar como pendiente"
                 />
-                <span className="task-title">{task.title}</span>
+                <div className="task-main">
+                  <span className="task-title">{task.title}</span>
+                  <span className="task-meta">
+                    Creada el {formatDateTime(task.created_at)}
+                    {task.completed_at && ` · completada el ${formatDateTime(task.completed_at)}`}
+                  </span>
+                </div>
                 <button className="icon-btn" onClick={() => remove(task.id)} aria-label="Eliminar">
                   ×
                 </button>
@@ -195,7 +202,10 @@ function TaskRow({
         aria-label={`Completar «${task.title}»`}
         title="Marcar como completada"
       />
-      <span className="task-title">{task.title}</span>
+      <div className="task-main">
+        <span className="task-title">{task.title}</span>
+        <span className="task-meta">Creada el {formatDateTime(task.created_at)}</span>
+      </div>
       {task.due_date && <span className="due-chip">📅 {task.due_date}</span>}
       <button className="icon-btn" onClick={onToggleEdit} aria-label="Editar">
         ✎
