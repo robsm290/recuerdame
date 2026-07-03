@@ -5,7 +5,7 @@ PWA de recordatorios **persistentes e insistentes** de tareas, pensada para comb
 ## Arquitectura
 
 - **`client/`** — Frontend React + Vite + TypeScript, instalable como PWA (`vite-plugin-pwa`). El service worker ([client/src/sw.ts](client/src/sw.ts)) recibe los push, muestra la notificación del sistema (con sonido, `silent: false`) y avisa a las ventanas abiertas para mostrar también la alerta in-app con sonido propio.
-- **`server/`** — Node.js + Express + SQLite (`better-sqlite3`). Guarda usuarios, tareas, ajustes y suscripciones push. Un cron (`node-cron`, cada minuto) evalúa por usuario: ¿está dentro de su rango horario (en su zona horaria)? ¿pasó el intervalo desde el último aviso? ¿qué tareas pendientes hay? → envía el push con `web-push` (VAPID).
+- **`server/`** — Node.js + Express. Guarda usuarios, tareas, ajustes y suscripciones push. Capa de datos dual: **PostgreSQL** si existe la variable `DATABASE_URL` (producción), **SQLite** local si no (desarrollo, cero configuración). Un cron (`node-cron`, cada minuto) evalúa por usuario: ¿está dentro de su rango horario (en su zona horaria)? ¿pasó el intervalo desde el último aviso? ¿qué tareas pendientes hay? → envía el push con `web-push` (VAPID).
 - **Cuentas**: email + contraseña (bcrypt + JWT). Permiten usar la misma lista de tareas en varios dispositivos; cada dispositivo registra su propia suscripción push.
 - Las claves VAPID y el secreto JWT se generan automáticamente al primer arranque y se guardan en `server/data/recuerdame.db` (no hay que configurar nada).
 
@@ -33,11 +33,23 @@ Tres requisitos innegociables:
 
 1. **Proceso Node siempre encendido** — el cron corre en memoria. Serverless puro o planes gratuitos que "duermen" el proceso rompen los recordatorios.
 2. **HTTPS** — obligatorio para service worker y push fuera de `localhost` (las plataformas PaaS lo dan gratis).
-3. **Disco persistente** para `server/data/` (SQLite + claves VAPID). Si se pierde, los usuarios y las suscripciones push se pierden con él.
+3. **Datos persistentes** — o un disco para `server/data/` (SQLite) o una base PostgreSQL vía `DATABASE_URL`. Ahí viven usuarios, tareas y claves VAPID; si se pierden las claves, todas las suscripciones push quedan inválidas.
 
-Variables de entorno: `PORT` (la fija la plataforma; por defecto 3999) y `VAPID_CONTACT=mailto:tu-email@dominio.com`.
+Variables de entorno: `PORT` (la fija la plataforma; por defecto 3999), `VAPID_CONTACT=mailto:tu-email@dominio.com`, y opcionalmente `DATABASE_URL` (PostgreSQL; `DATABASE_SSL=false` si tu Postgres no usa TLS).
 
-### Opción A — Railway (la más simple, ~5 USD/mes)
+### Opción A — Northflank (gratis)
+
+Su plan gratuito incluye 2 servicios always-on (sin "sleep") y 1 base de datos gestionada — justo lo que necesita esta app. Como el plan gratuito no garantiza volúmenes de disco, se usa la base PostgreSQL gratuita en vez de SQLite:
+
+1. Sube el repo a GitHub.
+2. En [northflank.com](https://northflank.com): crea el proyecto → **Add new → Database/Addon → PostgreSQL** (la gratuita).
+3. **Add new → Service → Deployment** desde tu repo de GitHub. Detecta el `Dockerfile`; puerto `3999`, protocolo HTTP, expuesto públicamente (te da dominio HTTPS).
+4. Variables de entorno del servicio:
+   - `DATABASE_URL` → la connection string del addon PostgreSQL (Northflank la muestra en el addon, o se enlaza como secret group).
+   - `VAPID_CONTACT=mailto:tu-email@dominio.com`
+5. Deploy. En los logs debe aparecer `[db] PostgreSQL conectado`.
+
+### Opción B — Railway (la más simple, ~5 USD/mes)
 
 1. Sube el repo a GitHub.
 2. En [railway.app](https://railway.app): New Project → Deploy from GitHub repo. Detecta el `Dockerfile` y construye solo.

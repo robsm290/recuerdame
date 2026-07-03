@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { db } from './db.js';
+import { all, run } from './db.js';
 import { sendToUser } from './push.js';
 
 const PRIORITY_LABEL = { high: 'alta', medium: 'media', low: 'baja' };
@@ -28,11 +28,12 @@ export function inWindow(now, start, end) {
  * Picks the tasks to include in a reminder: all pending HIGH tasks;
  * if none, all pending MEDIUM; if none, all pending LOW.
  */
-export function pickTasks(userId) {
+export async function pickTasks(userId) {
   for (const priority of ['high', 'medium', 'low']) {
-    const rows = db.prepare(
-      'SELECT title, due_date FROM tasks WHERE user_id = ? AND completed = 0 AND priority = ? ORDER BY created_at'
-    ).all(userId, priority);
+    const rows = await all(
+      'SELECT title, due_date FROM tasks WHERE user_id = ? AND completed = 0 AND priority = ? ORDER BY created_at',
+      [userId, priority]
+    );
     if (rows.length > 0) return { priority, tasks: rows };
   }
   return null;
@@ -58,26 +59,27 @@ export function buildPayload(picked) {
  */
 export async function evaluateUser(user, { force = false } = {}) {
   const nowMs = Date.now();
+  const lastSentAt = Number(user.last_sent_at) || 0; // BIGINT llega como string desde PostgreSQL
   if (!force) {
     if (!inWindow(localTime(user.timezone), user.start_time, user.end_time)) return null;
     // 5s slack so a cron tick landing a hair early doesn't skip a full cycle
-    if (user.last_sent_at && nowMs - user.last_sent_at < user.interval_minutes * 60000 - 5000) return null;
+    if (lastSentAt && nowMs - lastSentAt < user.interval_minutes * 60000 - 5000) return null;
   }
-  const picked = pickTasks(user.user_id);
+  const picked = await pickTasks(user.user_id);
   if (!picked) return null;
 
   const payload = buildPayload(picked);
   await sendToUser(user.user_id, payload);
-  db.prepare('UPDATE settings SET last_sent_at = ? WHERE user_id = ?').run(nowMs, user.user_id);
+  await run('UPDATE settings SET last_sent_at = ? WHERE user_id = ?', [nowMs, user.user_id]);
   return payload;
 }
 
 async function tick() {
-  const users = db.prepare(`
+  const users = await all(`
     SELECT s.user_id, s.start_time, s.end_time, s.interval_minutes, s.timezone, s.last_sent_at
     FROM settings s
     WHERE EXISTS (SELECT 1 FROM subscriptions sub WHERE sub.user_id = s.user_id)
-  `).all();
+  `);
   for (const user of users) {
     try {
       await evaluateUser(user);

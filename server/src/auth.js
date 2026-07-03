@@ -1,35 +1,38 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db, getMeta, setMeta } from './db.js';
+import { get, run, getMeta, setMeta } from './db.js';
 
-let jwtSecret = getMeta('jwt_secret');
+let jwtSecret = await getMeta('jwt_secret');
 if (!jwtSecret) {
   jwtSecret = crypto.randomBytes(48).toString('hex');
-  setMeta('jwt_secret', jwtSecret);
+  await setMeta('jwt_secret', jwtSecret);
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function register(email, password, timezone) {
+export async function register(email, password, timezone) {
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) throw httpError(400, 'Email inválido');
   if (!password || String(password).length < 8) {
     throw httpError(400, 'La contraseña debe tener al menos 8 caracteres');
   }
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existing = await get('SELECT id FROM users WHERE email = ?', [email]);
   if (existing) throw httpError(409, 'Ya existe una cuenta con ese email');
 
   const hash = bcrypt.hashSync(String(password), 10);
-  const info = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(email, hash);
+  const user = await get('INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id', [
+    email,
+    hash,
+  ]);
   const tz = isValidTimezone(timezone) ? timezone : 'UTC';
-  db.prepare('INSERT INTO settings (user_id, timezone) VALUES (?, ?)').run(info.lastInsertRowid, tz);
-  return { token: signToken(info.lastInsertRowid), email };
+  await run('INSERT INTO settings (user_id, timezone) VALUES (?, ?)', [user.id, tz]);
+  return { token: signToken(user.id), email };
 }
 
-export function login(email, password) {
+export async function login(email, password) {
   email = String(email || '').trim().toLowerCase();
-  const user = db.prepare('SELECT id, email, password_hash FROM users WHERE email = ?').get(email);
+  const user = await get('SELECT id, email, password_hash FROM users WHERE email = ?', [email]);
   if (!user || !bcrypt.compareSync(String(password || ''), user.password_hash)) {
     throw httpError(401, 'Email o contraseña incorrectos');
   }
